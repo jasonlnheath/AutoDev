@@ -1,0 +1,27 @@
+{
+  "description": "AutoDev LLM Settings for patch generation",
+  "version": "1.0.0",
+  "default_model": "glm-4.5-air",
+  "models": {
+    "glm-4.5-air": {
+      "name": "GLM-4.5-Air",
+      "use_case": "Simple fixes, fast iterations",
+      "max_tokens": 2000,
+      "temperature": 0.3
+    },
+    "glm-5": {
+      "name": "GLM-5",
+      "use_case": "Complex changes requiring deep reasoning",
+      "max_tokens": 4000,
+      "temperature": 0.5
+    }
+  },
+  "prompts": {
+    "patch_template": "prompts/patch_generation.txt"
+  },
+  "retry": {
+    "max_attempts": 3,
+    "backoff_multiplier": 2,
+    "initial_delay_sec": 1
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "description": "AutoDev Context Memory Rules - What to remember across iterations",
+  "version": "1.0.0",
+  "storage": {
+    "context_tree_path": "logs/context_tree.json",
+    "patterns_path": "logs/patterns.json",
+    "lessons_path": "logs/lessons_learned.json"
+  },
+  "remember": {
+    "error_patterns": {
+      "enabled": true,
+      "description": "Store error messages and their fixes for pattern matching",
+      "max_entries": 1000
+    },
+    "code_snapshots": {
+      "enabled": true,
+      "description": "Store code diffs with success/failure outcomes",
+      "max_entries": 500
+    },
+    "decision_reasoning": {
+      "enabled": false,
+      "description": "Full LLM reasoning (can be enabled for debugging)",
+      "max_entries": 100
+    }
+  },
+  "similarity_threshold": 0.7,
+  "max_memory_size_mb": 100
+}

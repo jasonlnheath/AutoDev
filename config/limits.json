@@ -1,0 +1,18 @@
+{
+  "description": "AutoDev Safety Limits to prevent infinite loops",
+  "version": "1.0.0",
+  "iteration": {
+    "max_iterations": 10,
+    "timeout_minutes": 5
+  },
+  "safety": {
+    "require_human_approval": false,
+    "approval_prompt": "Review patch before applying?",
+    "auto_rollback": true
+  },
+  "validation": {
+    "syntax_check": true,
+    "test_required": true,
+    "allow_regression": false
+  }
+}
