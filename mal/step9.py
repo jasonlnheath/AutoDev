@@ -459,6 +459,14 @@ def _str_value(obj: Any) -> str:
         # Format list contents in readable format
         contents = ' '.join(_str_value(item) for item in obj.items)
         return "(" + contents + ")"
+    elif isinstance(obj, MalHashMap):
+        # Format hash map contents in readable format
+        pairs = []
+        for dict_key, (orig_key, value) in obj.data.items():
+            key_str = _str_value(orig_key)
+            val_str = _str_value(value)
+            pairs.append(f"{key_str} {val_str}")
+        return "{" + " ".join(pairs) + "}"
     return str(obj)
 
 
@@ -1271,7 +1279,54 @@ def EVAL(ast: Any, env: Env) -> Any:
                     raise Exception("apply: last argument must be a list")
 
                 # Call the function
-                if isinstance(func, MalFunction):
+                if isinstance(func, MalMacro):
+                    # Handle macros in apply
+                    macro_func = func.func
+                    # Create environment for macro call
+                    macro_env = Env(outer=macro_func.env)
+                    param_items = macro_func.params.items if isinstance(macro_func.params, (MalList, MalVector)) else []
+
+                    # Check for & (variadic capture)
+                    variadic_index = None
+                    for i, param in enumerate(param_items):
+                        if isinstance(param, MalSymbol) and param.value == '&':
+                            variadic_index = i
+                            break
+
+                    if variadic_index is not None:
+                        # Bind regular parameters before &
+                        regular_params = param_items[:variadic_index]
+                        rest_param = param_items[variadic_index + 1] if variadic_index + 1 < len(param_items) else None
+
+                        for i, param in enumerate(regular_params):
+                            if i < len(all_args):
+                                macro_env.set(param.value, all_args[i])
+                            else:
+                                macro_env.set(param.value, NIL)
+
+                        # Bind remaining arguments to rest_param as a list
+                        rest_args = all_args[len(regular_params):]
+                        if rest_param:
+                            macro_env.set(rest_param.value, MalList(rest_args))
+                    else:
+                        # No variadic capture - bind all parameters
+                        for i, param in enumerate(param_items):
+                            if i < len(all_args):
+                                macro_env.set(param.value, all_args[i])
+                            else:
+                                macro_env.set(param.value, NIL)
+
+                    # Evaluate the macro body and get the result
+                    body_items = macro_func.body.items
+                    if not body_items:
+                        return NIL
+                    for body_expr in body_items[:-1]:
+                        EVAL(body_expr, macro_env)
+                    # The last expression is the expanded form - evaluate it
+                    expanded = EVAL(body_items[-1], macro_env)
+                    return EVAL(expanded, env)
+
+                elif isinstance(func, MalFunction):
                     # Create environment for function call
                     fn_env = Env(outer=func.env)
                     param_items = func.params.items if isinstance(func.params, (MalList, MalVector)) else []
@@ -1703,9 +1758,47 @@ def main():
     def false_q_fn(x):
         return MalBoolean(isinstance(x, MalBoolean) and not x.value)
 
+    # Step 9: Add symbol? function
+    def symbol_q_fn(x):
+        return MalBoolean(isinstance(x, MalSymbol))
+
+    # Step 9: Add keyword? function
+    def keyword_q_fn(x):
+        return MalBoolean(isinstance(x, MalKeyword))
+
+    # Step 9: Add map? function
+    def map_q_fn(x):
+        return MalBoolean(isinstance(x, MalHashMap))
+
+    # Step 9: Add sequential? function
+    def sequential_q_fn(x):
+        return MalBoolean(isinstance(x, (MalList, MalVector)))
+
+    # Step 9: Add fn? function
+    def fn_q_fn(x):
+        return MalBoolean(isinstance(x, MalFunction))
+
     # Step 9: Add vector function
     def vector_fn(*args):
         return MalVector(list(args))
+
+    # Step 9: Add list function
+    def list_fn(*args):
+        return MalList(list(args))
+
+    # Step 9: Add str function
+    def str_fn(*args):
+        # Concatenate arguments as readable strings (no quotes on strings)
+        result = ''.join(_str_value(arg) for arg in args)
+        return MalString(result)
+
+    # Step 9: Add prn function
+    def prn_fn(*args):
+        # Print arguments to stdout using printable format, return nil
+        output = ' '.join(_pr_str_value(arg) for arg in args)
+        if not _TEST_MODE:
+            print(output)
+        return NIL
 
     # Add arithmetic functions to environment for swap! and higher-order functions
     def add_fn(*args):
@@ -1759,6 +1852,14 @@ def main():
     repl_env.set('true?', true_q_fn)
     repl_env.set('false?', false_q_fn)
     repl_env.set('vector', vector_fn)
+    repl_env.set('list', list_fn)
+    repl_env.set('str', str_fn)
+    repl_env.set('prn', prn_fn)
+    repl_env.set('symbol?', symbol_q_fn)
+    repl_env.set('keyword?', keyword_q_fn)
+    repl_env.set('map?', map_q_fn)
+    repl_env.set('sequential?', sequential_q_fn)
+    repl_env.set('fn?', fn_q_fn)
 
     # Add *ARGV* as an empty list (for tests)
     repl_env.set('*ARGV*', MalList([]))
