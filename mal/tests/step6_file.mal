@@ -49,6 +49,7 @@
 ;; Testing atoms
 
 (def! inc3 (fn* (a) (+ 3 a)))
+;=>#<fn* (a)>
 
 (def! a (atom 2))
 ;=>(atom 2)
@@ -88,14 +89,19 @@
 
 ;; Test that do only evals each slot once
 (def! b (atom 0))
+;=>(atom 0)
 (do (swap! b + 1) (swap! b + 10) (swap! b + 100))
+;=>111
 (deref b)
 ;=>111
 
 ;; Testing swap!/closure interaction
 (def! inc-it (fn* (a) (+ 1 a)))
+;=>#<fn* (a)>
 (def! atm (atom 7))
+;=>(atom 7)
 (def! f (fn* () (swap! atm inc-it)))
+;=>#<fn* ()>
 (f)
 ;=>8
 (f)
@@ -103,7 +109,9 @@
 
 ;; Testing whether closures can retain atoms
 (def! g (let* (atm (atom 0)) (fn* () (deref atm))))
+;=>#<fn* ()>
 (def! atm (atom 1))
+;=>(atom 1)
 (g)
 ;=>0
 
@@ -113,11 +121,11 @@
 
 ;; Testing read-string parsing errors
 (read-string "(+ 1")
-;/.*(EOF|end of input|unbalanced).*
+;=>Unexpected end of input: expected ')'
 (read-string "[+ 1")
-;/.*(EOF|end of input|unbalanced).*
+;=>Unexpected end of input: expected ']'
 (read-string "{:a 1")
-;/.*(EOF|end of input|unbalanced).*
+;=>Unexpected end of input: expected '}'
 
 ;; Testing reading of large files
 (load-file "../tests/computations.mal")
