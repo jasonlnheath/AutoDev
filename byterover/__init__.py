@@ -1,22 +1,17 @@
 """
-Byterover Skill
+Byterover local integration for AutoDev.
 
-Intelligent context retrieval using GLM-4.5-Air.
+Context Tree, GLM client, and query system for autonomous loop.
 """
-
-from .glm_client import GLMClient, create_client
-from .context_tree import ContextTree, create_context_tree
-from .query import query, query_with_web
-from .curate import curate
+from .context_tree import ContextTree
+from .glm_client import GLMClient
+from .llm_client import create_llm_client, UniversalLLMClient
+from .local_context import LocalContextTree
 
 __all__ = [
-    "GLMClient",
-    "create_client",
     "ContextTree",
-    "create_context_tree",
-    "query",
-    "query_with_web",
-    "curate",
+    "GLMClient",
+    "create_llm_client",
+    "UniversalLLMClient",
+    "LocalContextTree"
 ]
-
-__version__ = "0.1.0"

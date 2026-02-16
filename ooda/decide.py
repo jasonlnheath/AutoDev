@@ -103,8 +103,9 @@ class PatchValidator:
 class PromptBuilder:
     """Build prompts for LLM patch generation."""
 
-    def __init__(self, template_path: Path):
+    def __init__(self, template_path: Path, use_mal_template: bool = False):
         self.template_path = template_path
+        self.use_mal_template = use_mal_template
         self.base_template = template_path.read_text()
 
     def build(
@@ -114,7 +115,9 @@ class PromptBuilder:
         error_message: str,
         context: Dict[str, Any],
         test_name: str = "",
-        mode: str = "standard"
+        mode: str = "standard",
+        missing_functions: List[str] = None,
+        current_step: int = None
     ) -> str:
         """
         Build prompt from template and context.
@@ -126,24 +129,55 @@ class PromptBuilder:
             context: Context from orient phase
             test_name: Name of failing test
             mode: Prompt mode (standard, minimal, detailed)
+            missing_functions: List of missing function names
+            current_step: Current Mal step number
         """
         # Build context section
         context_section = self._build_context_section(context, mode)
 
-        # Get error signature for better prompts
-        error_sig = context.get("error_signature", {})
-        error_type = error_sig.get("error_type", "Unknown")
+        # For Mal-specific template, build the prompt manually
+        # since the template has different placeholders
+        if "mal_patch_generation" in str(self.template_path):
+            missing_str = ", ".join(missing_functions or []) or "none"
+            step_str = str(current_step or "unknown")
 
-        # Format the prompt
-        prompt = self.base_template.format(
-            file_path=file_path,
-            error_message=error_message,
-            test_name=test_name or "(unknown test)",
-            current_code=current_code
-        )
+            prompt = f"""You are an expert Mal Lisp implementer. Given a failing test and error, generate a minimal patch.
 
-        # Add context
-        prompt += context_section
+## Context
+- File: {file_path}
+- Error: Tests are failing for missing functions: {missing_str}
+- Failing Test: {test_name or "(unknown)"}
+- Current Step: {step_str}
+
+## Current Code
+```python
+{current_code[:3000]}
+```
+
+## Task
+Generate a MINIMAL patch that adds the missing functions to make tests pass.
+
+{context_section}
+
+## Output Format
+Return ONLY a diff in unified format:
+```diff
+--- a/{file_path}
++++ b/{file_path}
+@@ -1,1 +1,1 @@
+-old line
++new line
+```
+"""
+        else:
+            # Use generic template
+            prompt = self.base_template.format(
+                file_path=file_path,
+                error_message=error_message,
+                test_name=test_name or "(unknown test)",
+                current_code=current_code
+            )
+            prompt += context_section
 
         # Add mode-specific instructions
         if mode == "minimal":
@@ -213,7 +247,7 @@ class Decider:
         self.config = json.loads(self.config_path.read_text())
 
         # Initialize components
-        self.prompt_builder = PromptBuilder(self.prompt_template_path)
+        self.prompt_builder = PromptBuilder(self.prompt_template_path, use_mal_template=True)
         self.validator = PatchValidator()
 
         # Statistics
@@ -224,34 +258,22 @@ class Decider:
             "fallbacks_used": 0
         }
 
-    def _get_glm_client(self):
-        """Get GLM client from byterover."""
+    def _get_llm_client(self):
+        """Get LLM client from byterover (supports GLM, OpenAI, Anthropic, etc)."""
         import sys
         sys.path.insert(0, str(self.byterover_dir))
-        from glm_client import GLMClient
-        return GLMClient()
+        from llm_client import create_llm_client
+        return create_llm_client()
 
     def _select_model(self, context: Dict[str, Any]) -> str:
         """
         Select appropriate model based on context.
 
-        Returns model name (glm-4.5-air or glm-5).
+        Returns model name (glm-4.7 for code generation).
         """
-        error_sig = context.get("error_signature", {})
-        error_type = error_sig.get("error_type", "")
-
-        # Use GLM-5 for complex errors
-        complex_errors = ["SyntaxError", "IndentationError", "TypeError"]
-        if error_type in complex_errors:
-            return "glm-5"
-
-        # Use GLM-5 if we've tried and failed before
-        similar_errors = context.get("similar_errors", [])
-        if similar_errors and not any(e.get("success", False) for e in similar_errors):
-            return "glm-5"
-
-        # Default to Air
-        return "glm-4.5-air"
+        # GLM-4.5-Air produces garbage output for code patches
+        # GLM-4.7 is reliable for code generation
+        return "glm-4.7"
 
     def generate_patch(
         self,
@@ -260,7 +282,9 @@ class Decider:
         error_message: str,
         context: Dict[str, Any],
         test_name: str = "",
-        max_attempts: Optional[int] = None
+        max_attempts: Optional[int] = None,
+        missing_functions: List[str] = None,
+        current_step: int = None
     ) -> Optional[PatchResult]:
         """
         Generate a patch using LLM with context from orient phase.
@@ -272,6 +296,8 @@ class Decider:
             context: Context from orient phase
             test_name: Name of failing test
             max_attempts: Max retry attempts (default from config)
+            missing_functions: List of missing function names
+            current_step: Current Mal step number
 
         Returns: PatchResult or None if all attempts failed
         """
@@ -283,19 +309,21 @@ class Decider:
             # Select model based on context
             model = self._select_model(context)
 
-            # Build prompt
+            # Build prompt with Mal-specific context
             prompt = self.prompt_builder.build(
                 file_path=file_path,
                 current_code=current_code,
                 error_message=error_message,
                 context=context,
                 test_name=test_name,
-                mode="minimal" if attempt > 1 else "standard"
+                mode="minimal" if attempt > 1 else "standard",
+                missing_functions=missing_functions,
+                current_step=current_step
             )
 
             # Call LLM
             try:
-                client = self._get_glm_client()
+                client = self._get_llm_client()
                 response = client.call(
                     prompt=prompt,
                     model=model,
@@ -320,6 +348,23 @@ class Decider:
 
             # Validate patch
             is_valid, errors = self.validator.validate_patch(patch)
+
+            # Additional check: ensure patch actually adds code
+            if is_valid:
+                # Check if patch adds actual code (not just comments/whitespace)
+                code_added = False
+                for line in patch.split('\n'):
+                    if line.startswith('+') and not line.startswith('+++'):
+                        content = line[1:].strip()
+                        # Skip empty lines, whitespace-only, and comment-only lines
+                        if content and not content.startswith('#'):
+                            code_added = True
+                            break
+
+                if not code_added:
+                    print(f"    [FAIL] Patch doesn't add any actual code")
+                    is_valid = False
+                    errors.append("No code added")
 
             if is_valid:
                 print(f"    [OK] Patch validated")

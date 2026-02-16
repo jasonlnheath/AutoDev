@@ -177,43 +177,75 @@ class DiffApplier:
         line_offset: int
     ) -> Tuple[bool, Optional[str]]:
         """
-        Apply a single hunk to the lines.
+        Apply a single hunk to the lines with fuzzy matching.
 
         Returns (success, error_message)
         """
         # Adjust for previous hunks
         actual_start = hunk.old_start + line_offset - 1  # 0-indexed
 
-        if actual_start < 0 or actual_start >= len(lines):
-            return False, f"Hunk start out of range: {actual_start}"
+        # Try exact match first
+        if actual_start >= 0 and actual_start < len(lines):
+            result = self._try_apply_hunk_at(lines, hunk, actual_start)
+            if result[0]:
+                return result
 
-        # Verify old lines match
-        old_lines_in_hunk = [l[1:] if l.startswith('-') else l[1:]
-                             for l in hunk.lines
-                             if not l.startswith('+') and not l.startswith('\\')]
+        # Fuzzy matching: search for context lines nearby
+        search_range = 20  # Search up/down 20 lines
+        for offset in range(-search_range, search_range + 1):
+            fuzzy_start = actual_start + offset
+            if fuzzy_start >= 0 and fuzzy_start < len(lines):
+                result = self._try_apply_hunk_at(lines, hunk, fuzzy_start)
+                if result[0]:
+                    # Update the offset for subsequent hunks
+                    return True, None
 
-        for i, expected in enumerate(old_lines_in_hunk):
-            actual_idx = actual_start + i
-            if actual_idx >= len(lines):
-                return False, f"Hunk extends past file end"
-            if lines[actual_idx] != expected:
-                return False, f"Hunk mismatch at line {actual_idx + 1}"
+        return False, f"Could not find matching location for hunk (searched +/- {search_range} lines)"
+
+    def _try_apply_hunk_at(
+        self,
+        lines: List[str],
+        hunk: DiffHunk,
+        start_pos: int
+    ) -> Tuple[bool, Optional[str]]:
+        """
+        Try to apply hunk at a specific position.
+
+        Returns (success, error_message)
+        """
+        # Extract context lines (non-+ lines)
+        context_lines = [l[1:] if l.startswith((' ', '-')) else None
+                        for l in hunk.lines
+                        if not l.startswith('+') and not l.startswith('\\')]
+
+        # Check if context matches at this position
+        match_count = 0
+        total_context = 0
+
+        for i, expected in enumerate(context_lines):
+            if expected is None:
+                continue
+            total_context += 1
+            actual_idx = start_pos + i
+            if actual_idx < len(lines) and lines[actual_idx] == expected:
+                match_count += 1
+
+        # Require at least 50% context match to apply
+        if total_context > 0 and match_count / total_context < 0.5:
+            return False, f"Insufficient context match ({match_count}/{total_context})"
 
         # Apply the hunk
         new_lines = []
-        i = actual_start
+        i = start_pos
 
         for line in hunk.lines:
             if line.startswith('\\'):
-                # Skip "No newline at end of file" markers
                 continue
             elif line.startswith(' '):
-                # Context line - should match
-                if i < len(lines) and lines[i] == line[1:]:
+                # Context line
+                if i < len(lines):
                     new_lines.append(lines[i])
                     i += 1
-                else:
-                    return False, f"Context line mismatch"
             elif line.startswith('-'):
                 # Remove line
                 if i < len(lines):
@@ -222,9 +254,8 @@ class DiffApplier:
                 # Add line
                 new_lines.append(line[1:])
 
-        # Replace the hunk region with new lines
-        lines[actual_start:i] = new_lines
-
+        # Replace the hunk region
+        lines[start_pos:i] = new_lines
         return True, None
 
 
@@ -234,10 +265,18 @@ class VerificationSuite:
     def __init__(self, project_root: Path, target_dir: str = "mal"):
         self.project_root = project_root
         self.target_dir = project_root / target_dir
+        self._observer = None
+
+    def _get_observer(self):
+        """Lazy import and cache Observer to avoid circular imports."""
+        if self._observer is None:
+            from ooda.observe import Observer
+            self._observer = Observer(self.project_root)
+        return self._observer
 
     def verify_all(self, file_path: str) -> Tuple[bool, List[str]]:
         """
-        Run full verification suite.
+        Run full verification suite including actual test execution.
 
         Returns (all_passed, list_of_messages)
         """
@@ -249,8 +288,6 @@ class VerificationSuite:
         messages.append(f"Syntax: {'[OK]' if syntax_ok else '[FAIL]'} {syntax_msg}")
         if not syntax_ok:
             all_passed = False
-
-        if not syntax_ok:
             return False, messages
 
         # 2. Import check (can module be imported?)
@@ -258,6 +295,29 @@ class VerificationSuite:
         messages.append(f"Import: {'[OK]' if import_ok else '[FAIL]'} {import_msg}")
         if not import_ok:
             all_passed = False
+            return False, messages
+
+        # 3. RUN ACTUAL TESTS via Docker
+        observer = self._get_observer()
+        test_success, test_output = observer.run_tests()
+
+        if test_success:
+            messages.append(f"Tests: [OK] All tests passing!")
+        else:
+            messages.append(f"Tests: [FAIL] Some tests failing")
+            all_passed = False
+
+            # Parse and show what's still missing
+            parsed = observer.parse_mal_test_output(test_output)
+            passed = parsed.get("passed", 0)
+            failed = parsed.get("failed", 0)
+            missing = parsed.get("missing_functions", [])
+
+            messages.append(f"  Test results: {passed} passed, {failed} failed")
+            if missing:
+                messages.append(f"  Still missing: {', '.join(missing[:5])}")
+            if failed > 0 and not missing:
+                messages.append(f"  Tests failing for other reasons")
 
         return all_passed, messages
 
@@ -337,7 +397,7 @@ class IterationLogger:
         decide_data: Dict[str, Any],
         act_result: ActResult
     ):
-        """Log a complete iteration."""
+        """Log a complete iteration with patch details."""
         entry = {
             "iteration": iteration,
             "timestamp": datetime.now().isoformat(),
@@ -357,6 +417,12 @@ class IterationLogger:
         # Append to iterations log
         with open(self.iterations_file, 'a') as f:
             f.write(json.dumps(entry) + '\n')
+
+        # Save patch to separate file for easier debugging
+        patch_result = decide_data.get("patch_result")
+        if patch_result:
+            patch_file = self.logs_dir / f"patch_iter_{iteration}.diff"
+            patch_file.write_text(patch_result.patch)
 
         # Update summary
         self._update_summary(iteration, act_result)

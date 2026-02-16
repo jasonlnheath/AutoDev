@@ -13,8 +13,8 @@ from typing import List, Dict, Optional
 class GLMClient:
     """Client for GLM-4.5-Air API via Coding Plan endpoint."""
 
-    CODING_ENDPOINT = "https://api.z.ai/api/coding/paas/v4/chat/completions"
-    DEFAULT_MODEL = "glm-4.5-air"
+    CODING_ENDPOINT = "https://api.bigmodel.cn/api/paas/v4/chat/completions"
+    DEFAULT_MODEL = "glm-4.7"  # Changed from glm-4.5-air (returns empty responses)
 
     def __init__(self, api_key: Optional[str] = None):
         """Initialize the GLM client.

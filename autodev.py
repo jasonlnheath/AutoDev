@@ -252,29 +252,37 @@ class OODALoop:
         )
 
     def _observe_phase(self, target_file: Optional[str]) -> Dict[str, Any]:
-        """Execute OBSERVE phase."""
-        # Run tests (or compilation check)
-        # Note: Mal tests require Unix modules, so we use compilation check
-        all_compile, output = self.actor.run_tests()
+        """Execute OBSERVE phase with Docker-based Mal testing."""
+        # Run actual Mal tests via Docker
+        success, output = self.observer.run_tests()
 
-        error_output = output if not all_compile else ""
+        # Parse the test output
+        parsed = self.observer.parse_mal_test_output(output)
 
-        # Detect target file if not specified
-        detected_file = self._detect_file(error_output) if error_output else target_file
+        # Determine target file
+        if target_file:
+            detected_file = target_file
+        else:
+            # Auto-detect from current step
+            current_step = self.observer.get_current_step()
+            detected_file = f"step{current_step}.py" if current_step else "step3.py"
 
         # Get current code
         current_code = ""
-        if detected_file:
-            try:
+        try:
+            if detected_file:
                 current_code = self.observer.read_file(detected_file)
-            except Exception as e:
-                self._log(f"Could not read file {detected_file}: {e}", "WARN")
+        except Exception as e:
+            self._log(f"Could not read file {detected_file}: {e}", "WARN")
 
         return {
-            "tests_passing": all_compile,
-            "error_output": error_output,
-            "target_file": detected_file or "",
+            "tests_passing": success,
+            "error_output": output,
+            "target_file": detected_file,
             "current_code": current_code,
+            "missing_functions": parsed.get("missing_functions", []),
+            "passed": parsed.get("passed", 0),
+            "failed": parsed.get("failed", 0),
             "timestamp": datetime.now().isoformat()
         }
 
@@ -304,6 +312,8 @@ class OODALoop:
         file_path = observe_data.get("target_file", "")
         current_code = observe_data.get("current_code", "")
         error = observe_data.get("error_output", "")
+        missing = observe_data.get("missing_functions", [])
+        current_step = self.observer.get_current_step()
 
         if not file_path:
             return {"patch_result": None, "error": "No target file"}
@@ -313,7 +323,9 @@ class OODALoop:
             current_code=current_code,
             error_message=error,
             context=orient_data,
-            test_name=""
+            test_name="",
+            missing_functions=missing,
+            current_step=current_step
         )
 
         return {

@@ -1,0 +1,128 @@
+You are an expert Mal Lisp implementer. Given a failing test and error, generate a minimal patch.
+
+## Context
+- File: {file_path}
+- Error: Tests are failing for missing functions: {missing_functions}
+- Failing Test: {test_name}
+- Current Step: {current_step}
+
+## Current Code
+```python
+{current_code}
+```
+
+## Task
+Generate a MINIMAL patch that:
+1. Adds the missing functions to make tests pass
+2. Follows the existing code structure and patterns
+3. Uses Mal types: MalList, MalVector, MalNumber, MalNil, MalBoolean, MalSymbol, etc.
+4. For special forms like `if`, `fn`, `do`: add to EVAL's special form handling section
+5. For built-ins like `list`, `count`, `=`: add to built-in function section
+
+## CRITICAL REQUIREMENTS
+- Generate COMPLETE, WORKING CODE - not placeholders or TODOs
+- The diff must reference the ACTUAL line numbers in the current code
+- For special forms: find the `if isinstance(first, MalSymbol):` section and add your code there
+- For built-ins: find the arithmetic section (`+`, `-`, `*`, `/`) and add your code after it
+- Each function must be FULLY IMPLEMENTED with proper error handling
+- NO stubs, NO "pass" statements, NO placeholder comments
+
+## Mal Implementation Patterns
+
+Special forms go in EVAL (check `isinstance(first, MalSymbol)`):
+```python
+if first.value == 'if':
+    # (if condition then else)
+    condition_expr, then_expr, else_expr = ast.items[1], ast.items[2], ast.items[3] if len(ast.items) > 3 else None
+    condition = EVAL(condition_expr, env)
+    # Only false and nil are falsy in Mal
+    if isinstance(condition, (MalBoolean, MalNil)) and not (isinstance(condition, MalBoolean) and condition.value):
+        if else_expr:
+            return EVAL(else_expr, env)
+        return NIL
+    return EVAL(then_expr, env)
+
+if first.value == 'fn':
+    # (fn* params body...) - user-defined function
+    params, *body_exprs = ast.items[1:]
+    return MalFunction(params, body_exprs, env)
+
+if first.value == 'do':
+    # (do expr1 expr2 ... exprN) - evaluate each, return last
+    result = NIL
+    for expr in ast.items[1:]:
+        result = EVAL(expr, env)
+    return result
+```
+
+Built-in functions:
+```python
+elif first.value == 'list':
+    # Create a list from arguments
+    return MalList([EVAL(arg, env) for arg in ast.items[1:]])
+
+elif first.value == 'list?':
+    # Check if something is a list
+    args = [EVAL(arg, env) for arg in ast.items[1:]]
+    return MalBoolean(isinstance(args[0], MalList) if args else False)
+
+elif first.value == 'empty?':
+    # Check if list/vector is empty
+    args = [EVAL(arg, env) for arg in ast.items[1:]]
+    if not args:
+        return TRUE
+    obj = args[0]
+    if isinstance(obj, (MalList, MalVector)):
+        return MalBoolean(len(obj.items) == 0)
+    return FALSE
+
+elif first.value == 'count':
+    # Count elements in list/vector/string
+    args = [EVAL(arg, env) for arg in ast.items[1:]]
+    if not args or isinstance(args[0], (MalNil, MalBoolean)):
+        return MalNumber(0)
+    obj = args[0]
+    if isinstance(obj, (MalList, MalVector)):
+        return MalNumber(len(obj.items))
+    elif isinstance(obj, MalString):
+        return MalNumber(len(obj.value))
+    return MalNumber(0)
+
+elif first.value == '=':
+    # Equality check
+    args = [EVAL(arg, env) for arg in ast.items[1:]]
+    if len(args) != 2:
+        raise Exception("= requires 2 arguments")
+    return MalBoolean(args[0] == args[1])
+```
+
+## Output Format
+Return ONLY a diff in unified format:
+```diff
+--- a/{file_path}
++++ b/{file_path}
+@@ -1,1 +1,1 @@
+-old line
++new line
+```
+
+No explanation, no markdown formatting, just the diff.
+
+## How to Create the Diff
+1. Find the location in the Current Code where your new code should go
+2. Note the EXACT line number (count from line 1)
+3. Include context lines (lines starting with space) before and after your change
+4. Your new lines start with `+`
+5. Lines to remove start with `-` (usually none for additions)
+
+Example: To add `list` function after the `/` handler:
+```
+@@ -438,6 +438,10 @@
+             raise Exception(f"Arithmetic operation requires numeric arguments")
+
++        # List built-ins
++        if first.value == 'list':
++            return MalList([EVAL(arg, env) for arg in ast.items[1:]])
++
+     # Function application
+```

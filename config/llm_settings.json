@@ -1,12 +1,18 @@
 {
   "description": "AutoDev LLM Settings for patch generation",
   "version": "1.0.0",
-  "default_model": "glm-4.5-air",
+  "default_model": "glm-4.7",
   "models": {
     "glm-4.5-air": {
       "name": "GLM-4.5-Air",
       "use_case": "Simple fixes, fast iterations",
       "max_tokens": 2000,
+      "temperature": 0.3
+    },
+    "glm-4.7": {
+      "name": "GLM-4.7",
+      "use_case": "Code generation, reliable patches",
+      "max_tokens": 4000,
       "temperature": 0.3
     },
     "glm-5": {

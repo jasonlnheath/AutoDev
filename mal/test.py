@@ -45,7 +45,8 @@ def parse_test_file(filename):
                     expected = next_line[3:].strip()
                     break
                 elif next_line and not next_line.startswith(';'):
-                    # Non-output, non-comment line means no expected output
+                    # Another non-comment line means no expected output for current line
+                    # Don't skip this next line - it will be processed in the next iteration
                     break
                 j += 1
 
@@ -54,7 +55,8 @@ def parse_test_file(filename):
                 'expected': expected,
                 'line': i + 1
             })
-            i = j + 1
+            # Only advance to the next line, not j+1, to avoid skipping lines
+            i += 1
         else:
             i += 1
 

@@ -39,7 +39,8 @@ class ProgressMonitor:
                 "success_rate": 0.0
             }
 
-        successful = sum(1 for h in history if h.get("success"))
+        # Success is stored in nested "act" dict
+        successful = sum(1 for h in history if h.get("act", {}).get("success", False))
 
         return {
             "total_iterations": len(history),
@@ -63,8 +64,10 @@ class ProgressMonitor:
 
         if summary.get('latest_iteration'):
             latest = summary['latest_iteration']
-            print(f"\nLatest Iteration: #{latest['iteration']}")
-            status = "✓ PASS" if latest['success'] else "✗ FAIL"
+            print(f"\nLatest Iteration: #{latest.get('iteration', 'N/A')}")
+            # Success is in nested "act" dict
+            success = latest.get("act", {}).get("success", False)
+            status = "[OK] PASS" if success else "[FAIL] FAIL"
             print(f"Status: {status}")
 
         print("=" * 50 + "\n")
