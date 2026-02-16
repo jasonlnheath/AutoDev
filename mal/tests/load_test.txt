@@ -1,0 +1,2 @@
+(load-file "tests/computations.mal")
+(sumdown 10)
