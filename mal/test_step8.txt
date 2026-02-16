@@ -1,0 +1,2 @@
+(defmacro! one (fn* () 1))
+(one)
