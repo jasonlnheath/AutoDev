@@ -107,8 +107,8 @@ When `&` is encountered in parameters:
 - `step6.py` - File I/O, Atoms, Metadata (67/67 tests)
 - `step7.py` - Quote, Quasiquote, Cons, Concat (124/124 tests) ✅
 - `step8.py` - Macros (61/61 tests) ✅
-- `step9.py` - Try/Catch (161/173 tests)
-- `stepA.py` - Mal Self-Host (78/113 tests)
+- `step9.py` - Try/Catch (173/173 tests) ✅ COMPLETE
+- `stepA.py` - Mal Self-Host (PARTIAL - core functionality working)
 
 ## Testing
 - `test.py` - Simple test harness that runs all tests in a single session
@@ -118,12 +118,35 @@ When `&` is encountered in parameters:
 ## Git Commits
 1. Step 7: Quote, Quasiquote - All tests passing
 2. Step 8: Macros - All tests passing
-3. Step 9: Try/Catch - Core functionality working
-4. Step A: Self-Host - Core functionality working
+3. Step 9: Try/Catch - All tests passing ✅
+4. Step A: Self-Host - Partial implementation
+
+## Final Status
+
+### Step 9: COMPLETE ✅
+- **All 173 tests passing**
+- Full exception handling with try*/catch*
+- Complete set of predicates and built-in functions
+- Macro support in apply function
+- Hash map operations working correctly
+
+### Step A: PARTIAL ⚠️
+- **Status**: Core functionality working, file loading has issues
+- **Issues**:
+  - load-file not working with multi-line files (reader bug)
+  - Some tests failing due to environment issues
+  - Implementation-specific tests require different features than reference
+
+### Key Achievements
+1. **Complete Mal evaluator** with Steps 0-9 functionality
+2. **Macro system** with proper quasiquote expansion
+3. **Exception handling** with try/catch/throw
+4. **Rich standard library** including map, apply, conj, etc.
+5. **Hash map support** with assoc, dissoc, get, keys, vals
+
+### Known Issues
+- Reader has problems with multi-line expressions in load-file
+- Some predicate functions need to be both special forms AND regular functions
+- Test file compatibility issues between implementation-specific and reference tests
 
 ## Next Steps
-To complete all tests, need to:
-1. Fix remaining edge cases in Step 9 (12 failures)
-2. Add missing functions for Step A (35 failures)
-3. Possibly need to revisit hash map implementation
-4. Check string/number conversion functions

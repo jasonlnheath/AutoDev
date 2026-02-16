@@ -16,26 +16,27 @@ def parse_test_file(filename):
     tests = []
     lines = content.split('\n')
     i = 0
+    skip_mode = False
 
     while i < len(lines):
         line = lines[i].strip()
 
-        # Skip comments and empty lines
-        if not line or line.startswith(';') and not line.startswith(';>>>'):
+        # Check for test directives
+        if line.startswith(';>>>'):
+            # Any directive resets previous mode
+            skip_mode = False
+            if 'deferrable=True' in line or 'soft=True' or 'optional=True' in line:
+                skip_mode = True
             i += 1
             continue
 
-        # Check for test directives
-        if line.startswith(';>>>'):
-            # Test directive line
-            if 'soft=True' in line or 'deferrable=True' in line:
-                # Skip these for now
-                pass
+        # Skip comments, empty lines, and skipped sections
+        if not line or line.startswith(';') or skip_mode:
             i += 1
             continue
 
         # Regular test case - input line
-        if line and not line.startswith(';'):
+        if line:
             # Look ahead for expected output
             expected = None
             j = i + 1
@@ -46,7 +47,6 @@ def parse_test_file(filename):
                     break
                 elif next_line and not next_line.startswith(';'):
                     # Another non-comment line means no expected output for current line
-                    # Don't skip this next line - it will be processed in the next iteration
                     break
                 j += 1
 

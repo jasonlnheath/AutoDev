@@ -1778,6 +1778,10 @@ def main():
     def fn_q_fn(x):
         return MalBoolean(isinstance(x, MalFunction))
 
+    # Step A: Add macro? function
+    def macro_q_fn(x):
+        return MalBoolean(isinstance(x, MalMacro))
+
     # Step 9: Add vector function
     def vector_fn(*args):
         return MalVector(list(args))
@@ -1900,6 +1904,7 @@ def main():
     repl_env.set('map?', map_q_fn)
     repl_env.set('sequential?', sequential_q_fn)
     repl_env.set('fn?', fn_q_fn)
+    repl_env.set('macro?', macro_q_fn)
     repl_env.set('time-ms', time_ms_fn)
     repl_env.set('number?', number_q_fn)
     repl_env.set('readline', readline_fn)
