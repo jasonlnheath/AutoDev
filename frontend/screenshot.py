@@ -46,6 +46,13 @@ class PluginScreenshot:
 
     def __init__(self):
         """Initialize Win32 APIs."""
+        # Enable DPI awareness FIRST (critical for correct coordinates on scaled displays)
+        # This makes GetWindowRect return actual pixel coordinates
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+        except (AttributeError, OSError):
+            pass  # Fallback for older Windows versions
+
         self.user32 = ctypes.windll.user32
 
         # Define function signatures
@@ -485,6 +492,7 @@ def capture_plugin(window_title: str, output_path: str = None,
 
 if __name__ == "__main__":
     import sys
+    import argparse
 
     # Set UTF-8 encoding for output
     if sys.platform == "win32":
@@ -492,23 +500,61 @@ if __name__ == "__main__":
         sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
         sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
-    # Test: List all windows
-    print("=== Available Windows ===")
-    screenshot = PluginScreenshot()
-    windows = screenshot.list_windows()
-    for title, hwnd, proc_name in windows[:30]:  # Show first 30
-        # Sanitize title for display
-        safe_title = title.encode('ascii', 'replace').decode('ascii')
-        print(f"  {safe_title} ({proc_name})")
+    parser = argparse.ArgumentParser(
+        description='Capture plugin window as JPG (DPI-aware)',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog='''
+Examples:
+  python screenshot.py "HeathAudioPluginTemplate"
+  python screenshot.py "MyPlugin" output.jpg
+  python screenshot.py "MyPlugin" output.jpg --grid
+  python screenshot.py "MyPlugin" output.jpg --quality 75
+  python screenshot.py --list
+'''
+    )
+    parser.add_argument('window_title', nargs='?', help='Window title to capture')
+    parser.add_argument('output', nargs='?', help='Output JPG path (default: <window_title>.jpg)')
+    parser.add_argument('--process', '-p', help='Process name for verification (e.g., Plugin.exe)')
+    parser.add_argument('--quality', '-q', type=int, default=85, help='JPEG quality 1-100 (default: 85)')
+    parser.add_argument('--grid', '-g', action='store_true', help='Add measurement grid overlay')
+    parser.add_argument('--list', '-l', action='store_true', help='List available windows')
 
-    # Test: Capture specific window (if running)
-    if len(sys.argv) > 1:
-        window_title = sys.argv[1]
-        process_name = sys.argv[2] if len(sys.argv) > 2 else None
-        try:
-            img = capture_plugin(window_title, process_name=process_name, grid=True)
-            output_file = f"{window_title.replace(' ', '_')}_screenshot.png"
-            img.save(output_file)
-            print(f"\nSaved: {output_file}")
-        except RuntimeError as e:
-            print(f"\nError: {e}")
+    args = parser.parse_args()
+
+    screenshot = PluginScreenshot()
+
+    # List mode
+    if args.list:
+        print("=== Available Windows ===")
+        windows = screenshot.list_windows()
+        for title, hwnd, proc_name in windows[:50]:
+            safe_title = title.encode('ascii', 'replace').decode('ascii')
+            print(f"  {safe_title} ({proc_name})")
+        sys.exit(0)
+
+    # Require window title for capture
+    if not args.window_title:
+        parser.print_help()
+        sys.exit(1)
+
+    # Determine output path
+    if args.output:
+        output_path = args.output
+    else:
+        # Default: window_title.jpg
+        safe_name = args.window_title.replace(' ', '_').replace('/', '_').replace('\\', '_')
+        output_path = f"{safe_name}.jpg"
+
+    try:
+        output_path = screenshot.capture_and_save(
+            args.window_title,
+            output_path,
+            process_name=args.process,
+            grid=args.grid,
+            quality=args.quality
+        )
+        print(f"\nCaptured: {output_path}")
+    except RuntimeError as e:
+        print(f"\nError: {e}")
+        print("\nTip: Use --list to see available windows")
+        sys.exit(1)

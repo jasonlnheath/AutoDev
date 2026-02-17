@@ -1,0 +1,222 @@
+# HeathAudioPluginTemplate - Product Specification
+
+**Version:** 1.0
+**Created:** 2026-02-16
+**Target GUI Size:** 500 x 340 pixels (actual, not scaled)
+**Source:** Extracted from AmpBender plugin
+
+---
+
+## Overview
+
+A reusable JUCE plugin template with WebView-based HTML/CSS/JS frontend.
+Clone from GitHub to create new plugins with consistent look and feel.
+
+---
+
+## What's Included
+
+### Header Bar (Top Section)
+| Component | Description |
+|-----------|-------------|
+| **IN knob** | Input gain/trim (-60 to +6 dB) |
+| **Preset dropdown** | Factory presets + user presets |
+| **Save button** | Save user preset to file |
+| **Load button** | Load preset from file |
+| **OS dropdown** | Oversampling (1x, 2x, 4x, 8x) |
+| **Zoom dropdown** | UI scale (75%, 100%, 125%, 150%, 200%) |
+| **OUT knob** | Output gain/trim (-60 to +6 dB) |
+| **About button** | Heath Audio logo → opens about dialog |
+
+### Meters (Side Sections)
+| Component | Description |
+|-----------|-------------|
+| **Input meter** | Left edge, vertical dB scale (-60 to +6) |
+| **Output meter** | Right edge, vertical dB scale (-60 to +6) |
+
+### Center Panel (Plugin-Specific)
+| Component | Description |
+|-----------|-------------|
+| **Background** | Dark panel with cyan accent border |
+| **Content** | Placeholder - empty for template |
+
+### Backend Functions
+- Preset management (save/load XML state)
+- Zoom scaling logic
+- Oversampling switching
+- Input/output trim parameters (AudioProcessorParameters)
+- About screen dialog
+
+### Infrastructure
+- LookAndFeel class (HeathAudioLookAndFeel)
+- WebView with resource provider
+- Native function bridge (JS ↔ C++)
+- Timer-based meter updates
+
+---
+
+## File Structure
+
+```
+HeathAudioPluginTemplate/
+├── Source/
+│   ├── PluginProcessor.h/cpp      # Audio processing, parameters
+│   ├── PluginEditor.h/cpp         # WebView, LookAndFeel, timer
+│   ├── ui/
+│   │   └── public/
+│   │       ├── index.html         # Main HTML structure
+│   │       ├── styles.css         # All styling
+│   │       └── app.js             # UI logic, parameter binding
+│   └── resources/
+│       └── logo.svg               # Heath Audio logo
+├── CMakeLists.txt                 # Build configuration
+├── README.md                      # Usage instructions
+└── TEMPLATE_CONFIG.yaml           # Plugin-specific settings
+```
+
+---
+
+## Color Palette
+
+```yaml
+colors:
+  # Backgrounds
+  background_primary: "#202020"    # Main dark background
+  background_secondary: "#404040"  # Header bar, panels
+  background_tertiary: "#606060"   # Borders, dividers
+
+  # Accent
+  accent_primary: "#a0e0e0"        # Cyan highlight
+  accent_secondary: "#204040"      # Dark cyan shadow
+
+  # Text
+  text_primary: "#e0e0e0"          # Main text
+  text_secondary: "#a0a0a0"        # Muted text
+  text_disabled: "#808080"         # Disabled state
+
+  # Knobs
+  knob_outer: "#000000"            # Black outer ring
+  knob_metallic_light: "#c0c0c0"   # Silver highlight
+  knob_metallic_mid: "#808080"     # Silver midtone
+  knob_indicator: "#e0e0e0"        # Indicator line
+```
+
+---
+
+## Parameters (Template Includes)
+
+| ID | Type | Range | Default | Label |
+|----|------|-------|---------|-------|
+| `input_gain` | float | -60.0 → 6.0 dB | 0.0 | IN |
+| `output_gain` | float | -60.0 → 6.0 dB | 0.0 | OUT |
+| `oversampling` | int | 1, 2, 4, 8 | 1 | OS |
+| `zoom` | float | 0.75, 1.0, 1.25, 1.5, 2.0 | 1.0 | Zoom |
+
+**Note:** Plugin-specific parameters (e.g., `mix`) added per-project.
+
+---
+
+## JavaScript API
+
+Native functions exposed to WebView:
+
+```javascript
+// Parameter control
+window.setParam(paramId, value)     // Set parameter value
+window.getParam(paramId)            // Get parameter value
+
+// Preset management
+window.loadPreset(index)            // Load factory preset by index
+window.savePreset()                 // Open save dialog
+window.loadPresetFile()             // Open load dialog
+
+// UI control
+window.setZoom(scale)               // Set UI zoom (0.75-2.0)
+window.resizeWindow(width, height)  // Resize plugin window
+
+// Meter updates (called from C++ timer)
+window.updateMeters(inputDb, outputDb, inputPeak, outputPeak, cpu)
+```
+
+---
+
+## C++ Classes
+
+### HeathAudioLookAndFeel
+Extends `juce::LookAndFeel_V4` with:
+- Custom color scheme
+- Rounded button backgrounds
+- Document window title bar styling
+
+### PluginProcessor
+- Manages AudioProcessorParameters
+- Handles preset save/load (XML)
+- Implements oversampling
+- Provides meter getters
+
+### PluginEditor
+- Owns WebBrowserComponent
+- Implements resource provider
+- Registers native functions
+- Timer callback for meter updates
+
+---
+
+## Creating a New Plugin
+
+1. Clone template from GitHub
+2. Edit `TEMPLATE_CONFIG.yaml`:
+   ```yaml
+   plugin_name: "MyNewPlugin"
+   manufacturer: "Heath Audio"
+   version: "1.0.0"
+   unique_id: "MHNP"  # 4-char plugin ID
+
+   # Add plugin-specific parameters
+   custom_parameters:
+     - id: "mix"
+       type: "float"
+       min: 0.0
+       max: 1.0
+       default: 0.5
+       label: "Mix"
+   ```
+3. Modify center panel in `index.html`
+4. Add DSP code in `PluginProcessor.cpp`
+5. Build with CMake
+
+---
+
+## Dimensions (Actual Pixels)
+
+| Section | Height | Y Position |
+|---------|--------|------------|
+| Title bar | 30px | 0-30 |
+| Header bar | 50px | 30-80 |
+| Main panel | 260px | 80-340 |
+| **Total** | **340px** | |
+
+| Section | Width | X Position |
+|---------|-------|------------|
+| Input meter | 40px | 0-40 |
+| Center panel | 420px | 40-460 |
+| Output meter | 40px | 460-500 |
+| **Total** | **500px** | |
+
+---
+
+## Dependencies
+
+- JUCE 8.x
+- CMake 3.20+
+- C++17
+- WebView2 (Windows) / WKWebView (macOS)
+
+---
+
+## Next Steps
+
+1. ✅ Specification document (this file)
+2. ⬜ Create C++ template project
+3. ⬜ Push to GitHub
+4. ⬜ Test by cloning for new plugin project

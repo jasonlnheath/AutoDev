@@ -34,8 +34,8 @@ class Observer:
         # Windows-compatible Docker command
         if os.name == 'nt':  # Windows
             mal_path = self.mal_dir.resolve()
-            # Use forward slashes for Docker volume mount
-            docker_path = str(mal_path).replace('\\', '/').replace('C:', '/c')
+            # Use Windows path format (C:/...) for Docker volume mount
+            docker_path = str(mal_path).replace('\\', '/')
 
             docker_cmd = [
                 "docker", "run", "--rm", "-i",

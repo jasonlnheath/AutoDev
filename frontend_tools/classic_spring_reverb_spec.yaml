@@ -1,0 +1,249 @@
+# Classic Spring Reverb - Frontend Specification
+# Generated from mockup: ClassicSpringReverbMockup.jpg
+# Mockup dimensions: 929 x 628 pixels
+
+plugin:
+  name: "ClassicSpringReverb"
+  manufacturer: "Heath Audio"
+  size:
+    width: 929
+    height: 628
+
+# =============================================================================
+# LAYOUT STRUCTURE
+# =============================================================================
+
+layout:
+  # Vertical regions (from top to bottom):
+  # - Title bar: 0-30px (window chrome)
+  # - Top bar: 30-80px (IN, presets, OS, zoom, OUT)
+  # - Main panel: 80-628px (MIX knob with meters)
+
+  title_bar:
+    y_start: 0
+    y_end: 30
+    contains: ["window_title", "window_controls"]
+
+  top_bar:
+    y_start: 30
+    y_end: 80
+    background: "#404040"
+    contains:
+      - control: "IN"
+        type: "knob"
+        center: { x: 80, y: 50 }
+        diameter: 47
+        label_position: "below"
+
+      - control: "preset_dropdown"
+        type: "dropdown"
+        position: { x: 180, y: 50 }
+        size: { width: 150, height: 30 }
+        label: "PRESET"
+        default: "Factory Init"
+
+      - control: "save_preset"
+        type: "button"
+        position: { x: 340, y: 50 }
+        size: { width: 30, height: 30 }
+        icon: "floppy_disk"
+
+      - control: "load_preset"
+        type: "button"
+        position: { x: 380, y: 50 }
+        size: { width: 30, height: 30 }
+        icon: "folder"
+
+      - control: "oversampling"
+        type: "dropdown"
+        position: { x: 450, y: 50 }
+        size: { width: 60, height: 30 }
+        label: "OS"
+        default: "1x"
+        options: ["1x", "2x", "4x", "8x"]
+
+      - control: "zoom"
+        type: "dropdown"
+        position: { x: 520, y: 50 }
+        size: { width: 80, height: 30 }
+        label: "ZOOM"
+        default: "100%"
+        options: ["75%", "100%", "125%", "150%"]
+
+      - control: "OUT"
+        type: "knob"
+        center: { x: 850, y: 50 }
+        diameter: 47
+        label_position: "below"
+
+  main_panel:
+    y_start: 80
+    y_end: 628
+    background: "#202020"
+    contains:
+      # Level meter scales on left and right edges
+      - control: "input_meter_scale"
+        type: "meter_scale"
+        position: { x: 20, y: 100 }
+        size: { width: 40, height: 500 }
+        range: [-60, 6]
+        unit: "dB"
+
+      - control: "output_meter_scale"
+        type: "meter_scale"
+        position: { x: 869, y: 100 }
+        size: { width: 40, height: 500 }
+        range: [-60, 6]
+        unit: "dB"
+
+      # Central panel with cyan border
+      - control: "center_panel"
+        type: "panel"
+        position: { x: 70, y: 100 }
+        size: { width: 789, height: 500 }
+        border_color: "#a0e0e0"
+        border_width: 2
+
+        # MIX knob (main control)
+        contains:
+          - control: "MIX"
+            type: "knob"
+            center: { x: 464, y: 340 }
+            diameter: 100
+            label_position: "above"
+            style: "large_metallic"
+
+# =============================================================================
+# PARAMETERS
+# =============================================================================
+
+parameters:
+  - id: "mix"
+    type: "float"
+    min: 0.0
+    max: 1.0
+    default: 0.5
+    increment: 0.01
+    unit: ""
+    label: "Mix"
+    description: "Wet/dry mix (0=dry, 1=wet)"
+    component: "MIX_knob"
+
+  - id: "input_gain"
+    type: "float"
+    min: -60.0
+    max: 6.0
+    default: 0.0
+    increment: 0.1
+    unit: "dB"
+    label: "IN"
+    description: "Input gain/trim"
+    component: "IN_knob"
+
+  - id: "output_gain"
+    type: "float"
+    min: -60.0
+    max: 6.0
+    default: 0.0
+    increment: 0.1
+    unit: "dB"
+    label: "OUT"
+    description: "Output gain/trim"
+    component: "OUT_knob"
+
+# =============================================================================
+# COLOR PALETTE
+# =============================================================================
+
+colors:
+  # Background colors
+  background:
+    primary: "#202020"    # Main dark background
+    secondary: "#404040"  # Top bar, panels
+    tertiary: "#606060"   # Borders, dividers
+
+  # Accent colors
+  accent:
+    primary: "#a0e0e0"    # Cyan highlight
+    secondary: "#204040"  # Dark cyan shadow
+
+  # Text colors
+  text:
+    primary: "#e0e0e0"    # Main text
+    secondary: "#a0a0a0"  # Muted text
+    tertiary: "#808080"   # Disabled text
+
+  # Knob colors
+  knob:
+    outer_ring: "#000000"       # Black outer ring
+    metallic_light: "#c0c0c0"   # Metallic silver highlight
+    metallic_mid: "#808080"     # Metallic silver midtone
+    metallic_dark: "#404040"    # Metallic silver shadow
+    indicator: "#e0e0e0"        # White/cream indicator line
+
+# =============================================================================
+# TYPOGRAPHY
+# =============================================================================
+
+typography:
+  title:
+    font: "cursive"  # Stylized cursive for plugin name
+    size: 24
+    color: "#e0e0e0"
+
+  label:
+    font: "sans-serif"
+    size: 12
+    color: "#a0a0a0"
+
+  value:
+    font: "monospace"
+    size: 11
+    color: "#e0e0e0"
+
+  meter_scale:
+    font: "monospace"
+    size: 10
+    color: "#606060"
+
+# =============================================================================
+# COMPONENT STYLES
+# =============================================================================
+
+components:
+  knob_small:
+    diameter: 47
+    style: "simple_gray"
+    shadow: true
+    indicator_width: 2
+
+  knob_large:
+    diameter: 100
+    style: "metallic_silver"
+    outer_ring_color: "#000000"
+    inner_gradient:
+      - "#c0c0c0"
+      - "#808080"
+      - "#404040"
+    indicator_color: "#e0e0e0"
+    indicator_width: 3
+
+  dropdown:
+    background: "#404040"
+    border: "#606060"
+    text_color: "#e0e0e0"
+    arrow_color: "#a0a0a0"
+    hover_background: "#505050"
+
+  button:
+    background: "#404040"
+    border: "#606060"
+    icon_color: "#a0a0a0"
+    hover_background: "#505050"
+
+  meter_scale:
+    background: "transparent"
+    tick_color: "#606060"
+    text_color: "#606060"
+    major_ticks: [-60, -18, -12, -9, -6, -3, 0, 3, 6]
+    minor_ticks_every: 1
