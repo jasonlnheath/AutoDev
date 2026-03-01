@@ -1,7 +1,68 @@
 # AutoDev - Claude Code Instructions
 
-**Project:** Autonomous Development Loop (OODA)
-**Status:** Phase 0 - Initialization Complete
+**Project:** Autonomous Development Loop (OODA) + Kanban Workflow
+**Status:** Active
+
+---
+
+## Kanban + AutoDev Workflow
+
+This repo contains the global kanban/autodev workflow, usable on any project.
+
+### Commands
+
+| Command | Description |
+|---------|-------------|
+| `/next` | Fetch top Ready issue → run autodev |
+| `/batch` | Process all Ready issues in parallel (worktree-isolated) |
+| `/autodev` | Run OODA loop on a task |
+
+### Kanban Labels
+
+| Label | Column |
+|-------|--------|
+| `backlog` | Not yet ready |
+| `ready` | Ready to work on |
+| `in-progress` | Being worked on |
+| `review` | Complete, awaiting review |
+
+### Batch Cycle
+
+```
+1. Move issues to "ready"     (GitHub Projects board)
+2. /batch                      (AI works through all ready issues)
+3. Review issues in "review"   (close or send back)
+4. Repeat
+```
+
+### Issue Template Fields
+
+- **Product Spec** - link to spec file + section
+- **Acceptance Criteria** - checkboxes that must pass
+- **Tests to Run** - which tests to run for validation
+- **Dependencies** - `Depends on: #N` (blocks if #N is open)
+- **Conflicts** - `Conflicts with: #N` (serializes if #N is in-progress)
+
+### PostToolUse Hook
+
+`hooks/PostToolUse.js` runs after every autodev completion:
+- Moves issue from `in-progress` → `review`
+- Checks if batch is complete (no remaining ready/in-progress)
+- Prints batch completion banner when done
+
+### Setup for a New Project
+
+1. Copy `.claude/commands/next.md` and `batch.md` to project
+2. Copy `.claude/hooks/PostToolUse.js` to project
+3. Copy `.github/ISSUE_TEMPLATE/task.md` to project
+4. Configure `hooks` in `.claude/settings.json`:
+   ```json
+   {
+     "hooks": {
+       "PostToolUse": [{ "command": "node .claude/hooks/PostToolUse.js" }]
+     }
+   }
+   ```
 
 ---
 
